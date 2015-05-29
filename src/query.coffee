@@ -25,8 +25,11 @@ MeteorOrm.Query = {
 
   classMethods: {
 
+    first: (attrs = {}) ->
+      new Query(@).where(attrs).one()
+
     where: (attrs) ->
-      new Query(@, attrs).where(attrs)
+      new Query(@).where(attrs)
 
     one: ->
       new Query(@).one()

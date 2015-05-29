@@ -73,8 +73,8 @@ MeteorOrm.Deep = {
       helper obj, key.split('.')
 
     (obj, keys) ->
-      unless isPlainObject obj
-        throw new Error "deepPick must be called on an object, not '#{obj}'"
+      # unless isPlainObject obj
+      #   throw new Error "deepPick must be called on an object, not '#{obj}'"
       flat_new_obj = _.reduce keys, (new_obj, key) ->
         val = deepGet obj, key
         new_obj[key] = val if val isnt undefined
@@ -151,6 +151,27 @@ MeteorOrm.Deep = {
           f subv, "#{k}.#{subk}"
       else
         f v, k
+
+  deepDefaults: (dest, src) ->
+    if _.isUndefined(dest) or _.isNull(dest) or !isPlainObject(dest)
+      return dest
+    _.each src, (v, k) ->
+      if _.isUndefined(dest[k])
+        dest[k] = v
+      else if isPlainObject(v)
+        MeteorOrm.Deep.deepDefaults dest[k], v
+      return
+    dest
+
+  value: (obj, key, value) ->
+    if typeof key == 'string'
+      MeteorOrm.Deep.value obj, key.split('.'), value
+    else if key.length == 1 and value != undefined
+      obj[key[0]] = value
+    else if key.length == 0
+      obj
+    else
+      MeteorOrm.Deep.value obj[key[0]], key.slice(1), value
 
   # note that the function takes a key and optionally a value, not the usual
   # mapping function pattern of taking a value and optionally a key
