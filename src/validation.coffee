@@ -209,6 +209,9 @@ MeteorOrm.Validation = {
     errors: ->
       MeteorOrm.Deep.deepFromFlat(@_errors || {})
 
+    errorMessages: ->
+      _.map @errors(), (v, k) -> "#{k} #{v}"
+
     errorKeys: ->
       keys = []
       keys.push(key) for key, v of @_errors

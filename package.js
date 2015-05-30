@@ -13,6 +13,7 @@ Package.describe({
 Package.onUse(function(api) {
   api.use('coffeescript');
   api.use('underscore');
+  api.use('matb33:collection-hooks');
   api.versionsFrom('1.1.0.2');
 
   api.addFiles('src/init.coffee');
@@ -21,6 +22,7 @@ Package.onUse(function(api) {
   api.addFiles('src/module.coffee');
   api.addFiles('src/query.coffee');
   api.addFiles('src/hooks.coffee');
+  api.addFiles('src/server_hooks.coffee');
   api.addFiles('src/validation.coffee')
   api.addFiles('src/meteororm.coffee');
 });
@@ -28,6 +30,7 @@ Package.onUse(function(api) {
 Package.onTest(function(api) {
   api.use('tinytest');
   api.use('autopublish');
+  api.use('underscore');
   api.use('coffeescript');
   api.use('nisargshah100:meteororm');
 

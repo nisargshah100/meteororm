@@ -5,6 +5,11 @@ class Model extends MeteorOrm.Module
   @include(MeteorOrm.Validation.instanceMethods)
   @extend(MeteorOrm.Hooks.classMethods)
   @include(MeteorOrm.Hooks.instanceMethods)
+  @extend(MeteorOrm.ServerHooks.classMethods)
+  @include(MeteorOrm.ServerHooks.instanceMethods)
+
+  @createdAtKey = 'createdAt'
+  @updatedAtKey = 'updatedAt'
 
   # class methods
 
@@ -14,16 +19,34 @@ class Model extends MeteorOrm.Module
   @_schemaKeys = ->
     MeteorOrm.Deep.deepKeys(@_schema)
 
+  @_setupTimestampSchema = (data) ->
+    data[@createdAtKey] = null if not data[@createdAtKey]
+    data[@updatedAtKey] = null if not data[@updatedAtKey]
+    @validates @createdAtKey, type: Date
+    @validates @updatedAtKey, type: Date
+    data
+
+  @_setupTimestamps = ->
+    if Meteor.isServer
+      @beforeCreate ->
+        @[@.constructor.createdAtKey] = new Date()
+
+      @beforeUpdate -> 
+        @[@.constructor.updatedAtKey] = new Date()
+
   # public class
 
-  @collection = (tbl) ->
+  @collection = (tbl, @collection_options = {}) ->
     @_collection = new Meteor.Collection(tbl)
 
   @schema = (data) ->
-    @_schema = _.extend({ _id: null }, data)
-    @_schemaKeys = MeteorOrm.Deep.deepKeys(@_schema)
     @_setupHooks()
     @_setupValidations()
+    data = @_setupTimestampSchema(data) if @collection_options.timestamps
+    @_schema = _.extend({ _id: null }, data)
+    @_schemaKeys = MeteorOrm.Deep.deepKeys(@_schema)
+    @_setupTimestamps() if @collection_options.timestamps
+    @._setupServerHooks()
 
   @allow = (data) ->
     @_collection.allow(data) if Meteor.isServer
@@ -31,8 +54,8 @@ class Model extends MeteorOrm.Module
   @deny = (data) ->
     @_collection.deny(data) if Meteor.isServer
 
-  @create = (data) ->
-    @new(data).save()
+  @create = (data, options = {}) ->
+    @new(data).save(options)
 
   @wrap = (objects) ->
     records = []
@@ -58,32 +81,53 @@ class Model extends MeteorOrm.Module
   # otherwise reload since server might have added some stuff to it
   _create: (options = {}) ->
     @_setupValidation()
+    @_callAllHooks('beforeValidation', options)
     @_validate('create')
+    @_callAllHooks('afterValidation', options)
 
     return false if @hasErrors()
 
-    oldState = MeteorOrm.Deep.deepClone(@_attrs)
-    delete @_attrs._id
-    id = @.constructor._collection.insert @_attrs, (err, status) =>
+    @_callAllHooks('beforeSave', options)
+    @_callAllHooks('beforeCreate', options)
+
+    attrs = @valuesAsHash()
+    delete attrs._id
+    oldState = MeteorOrm.Deep.deepClone(attrs)
+
+    id = @.constructor._collection.insert attrs, (err, status) =>
       if err
-        console.log("(#{err.errorType}) #{err.message}")
+        console.error('create', err)
         @._define(oldState)
+        options.onError?(err)
       else
         @.reload(id)
+        @_callAllHooks('afterCreate', options)
+        @_callAllHooks('afterSave', options)
+        options.onSuccess?()
 
   _update: (options = {}) ->
     @_setupValidation()
+    @_callAllHooks('beforeValidation', options)
     @_validate('update')
+    @_callAllHooks('afterValidation', options)
 
     return false if @hasErrors()
 
+    @_callAllHooks('beforeSave', options)
+    @_callAllHooks('beforeUpdate', options)
+
     vals = @valuesAsHash()
     delete vals._id
+
     @.constructor._collection.update @id, { $set: vals }, (err) =>
       if err
-        console.log("(#{err.errorType}) #{err.message}")
+        console.error('update', err)
+        options.onError?(err)
       else
         @.reload(@id)
+        @_callAllHooks('afterUpdate', options)
+        @_callAllHooks('afterSave', options)
+        options.onSuccess?()
 
   # public instance
 
@@ -99,7 +143,8 @@ class Model extends MeteorOrm.Module
     @
 
   constructor: (attrs = {}) ->
-    @_attrs = @._define(attrs)
+    @._define(attrs)
+    @_callAllHooks('afterInitialize')
     @
 
   save: (options = {}) ->
@@ -111,20 +156,30 @@ class Model extends MeteorOrm.Module
 
     if typeof(id) == 'string'
       @.reload(id)  # we do this b/c its async - this updates the state right away - then if it fails on server, we can reset the state
+    
     @
 
   isPersisted: ->
     @id?
 
   # no validation or hooks - just a delete. 
-  delete: ->
-    @.constructor._collection.remove(@id)
+  delete: (cb) ->
+    @.constructor._collection.remove @id, (err) ->
+      if err
+        console.error('delete', err)
+      else
+        cb?()
 
   destroy: (options = {}) ->
     @_setupValidation()
+    @_callAllHooks('beforeValidation', options)
     @_validate('destroy')
+    @_callAllHooks('afterValidation', options)
     return false if @hasErrors()
-    @delete()
+
+    @_callAllHooks('beforeDestroy', options)
+    @delete =>
+      @_callAllHooks('afterDestroy', options)
     true
 
 MeteorOrm.Model = Model

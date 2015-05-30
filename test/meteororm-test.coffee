@@ -1,5 +1,5 @@
 class @User extends MeteorOrm.Model
-  @collection 'users'
+  @collection 'users', timestamps: true
   @schema
     email: null
     password: null
@@ -82,8 +82,59 @@ class @ValUnique extends MeteorOrm.Model
     'insert': -> true
     'remove': -> true
 
+@HTHOOKS = {}
+@HTHOOKSORDER = 1
+
+class @HT extends MeteorOrm.Model
+  @collection 'hts'
+  @schema
+    email: null
+
+  @validates 'email', presence: true
+
+  @allow
+    'insert': -> true
+    'update': -> true
+    'remove': -> true
+
+  @deny
+    'remove': (uId, doc) -> doc.email == 'fail'
+
+  @afterInitialize ->
+    @h = {}
+    @_last = 0
+    @h.afterInitialize = 0
+    @_last++
+
+  _.each [
+    'beforeCreate', 'afterCreate', 'beforeSave', 'afterSave', 'beforeDestroy', 'afterDestroy',
+    'beforeUpdate', 'afterUpdate', 'beforeValidation', 'afterValidation'
+  ], (fn) =>
+    @[fn] ->
+      @h[fn] = @_last
+      @_last++
+
+class @TT extends MeteorOrm.Model
+  @collection 'tts', timestamps: true
+  @schema
+    test: null
+
+  @allow
+    'insert': (userId, doc) -> true
+    'update': (userId, doc) -> true
+    'remove': -> true
+
+  @deny
+    'insert': (userId, doc) -> doc.test == 'fail'
+    'update': (userId, doc) -> doc.test == 'fail'
+
+
 User.deleteAll()
 Article.deleteAll()
+Val.deleteAll()
+ValUnique.deleteAll()
+TT.deleteAll()
+HT.deleteAll()
 
 u1 = User.create(email: 'test@test.com', password: 'awesome', friends: [])
 u2 = User.create(email: 'test2@test.com', password: 'awesome2', friends: ['Great'])
@@ -295,3 +346,87 @@ Tinytest.add 'validate length on destroy', (test) ->
   r.destroy()
   test.equal r.hasErrors(), true
   test.equal r.errors()['email'][0], 'must be letters & numbers only'
+
+Tinytest.addAsync 'create hooks', (test, next) ->
+  r = HT.create(email: 'test@test.com')
+  expected = {afterInitialize: 0, beforeValidation: 1, afterValidation: 2, beforeSave: 3, beforeCreate: 4}
+  test.equal expected, r.h
+
+  setTimeout (=> 
+    expected = {afterInitialize: 0, beforeValidation: 1, afterValidation: 2, beforeSave: 3, beforeCreate: 4, afterCreate: 5, afterSave: 6}
+    test.equal(expected, r.h)
+    next()
+  ), 1000
+
+Tinytest.add 'create failed hooks', (test) ->
+  r = HT.create(email: null)
+  expected = {afterInitialize: 0, beforeValidation: 1, afterValidation: 2}
+  test.equal expected, r.h
+
+  setTimeout (=> 
+    console.error("[create failed hooks] not matching", expected, r.h) unless _.isEqual(expected, r.h)
+  ), 1000
+
+Tinytest.addAsync 'update hooks', (test, next) ->
+  r = HT.create(email: 'test@test.com', { runHooks: false })
+  r.email = 'foo@foo.com'
+  r.save()
+
+  expected = {afterInitialize: 0, beforeValidation: 1, afterValidation: 2, beforeSave: 3, beforeUpdate: 4}
+  test.equal expected, r.h
+
+  setTimeout (=> 
+    expected = {afterInitialize: 0, beforeValidation: 1, afterValidation: 2, beforeSave: 3, beforeUpdate: 4, afterUpdate: 5, afterSave: 6}
+    test.equal(expected, r.h)
+    next()
+  ), 1000
+
+Tinytest.addAsync 'update failed hooks', (test, next) ->
+  r = HT.create(email: 'test@test.com', { runHooks: false })
+  r.email = null
+  r.save()
+
+  expected = {afterInitialize: 0, beforeValidation: 1, afterValidation: 2}
+  test.equal expected, r.h
+
+  setTimeout (=> 
+    test.equal(expected, r.h)
+    next()
+  ), 1000
+
+Tinytest.addAsync 'destroy hooks', (test, next) ->
+  r = HT.create(email: 'test@test.com', { runHooks: false })
+  r.destroy()
+  expected = {afterInitialize: 0, beforeValidation: 1, afterValidation: 2, beforeDestroy: 3}
+  test.equal expected, r.h
+
+  setTimeout (=> 
+    expected = {afterInitialize: 0, beforeValidation: 1, afterValidation: 2, beforeDestroy: 3, afterDestroy: 4}
+    test.equal(expected, r.h)
+    next()
+  ), 1000
+
+Tinytest.add 'destroy failed hooks', (test) ->
+  r = HT.create(email: 'fail', { runHooks: false })
+  r.destroy()
+  expected = {afterInitialize: 0, beforeValidation: 1, afterValidation: 2, beforeDestroy: 3}
+  test.equal expected, r.h
+
+  setTimeout (=>
+    console.error('[destroy failed hooks] didnt match') if not _.isEqual(expected, r.h)
+  ), 1000
+
+Tinytest.addAsync 'timestamps', (test, next) ->
+  r = TT.create { test: 'me' }, { 
+    onSuccess: ->
+      test.notEqual r.createdAt, null
+      test.equal r.updatedAt, null
+
+      r.test = 'something else'
+      r.save {
+        onSuccess: ->
+          test.notEqual r.updatedAt, null
+          test.notEqual r.createdAt, null
+          next()
+      }
+  }

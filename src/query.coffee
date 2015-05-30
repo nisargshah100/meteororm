@@ -21,6 +21,9 @@ class Query
   delete: ->
     obj.delete() for obj in @all()
 
+  destroy: ->
+    obj.destroy() for obj in @all()
+
 MeteorOrm.Query = {
 
   classMethods: {
@@ -42,6 +45,9 @@ MeteorOrm.Query = {
 
     deleteAll: ->
       new Query(@).where().delete()
+
+    destroyAll: ->
+      new Query(@).where().destroy()
 
   }
 
