@@ -1,1 +1,1 @@
-@MeteorOrm = {}
+@MeteorOrm = { models: {} }

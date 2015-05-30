@@ -13,17 +13,20 @@ Package.describe({
 Package.onUse(function(api) {
   api.use('coffeescript');
   api.use('underscore');
+  api.use('check');
   api.use('matb33:collection-hooks');
   api.versionsFrom('1.1.0.2');
 
   api.addFiles('src/init.coffee');
   api.addFiles('lib/deep.coffee');
+  api.addFiles('lib/inflection.coffee');
   api.addFiles('lib/deepExtend.js');
   api.addFiles('src/module.coffee');
   api.addFiles('src/query.coffee');
   api.addFiles('src/hooks.coffee');
   api.addFiles('src/server_hooks.coffee');
-  api.addFiles('src/validation.coffee')
+  api.addFiles('src/validation.coffee');
+  api.addFiles('src/associations.coffee');
   api.addFiles('src/meteororm.coffee');
 });
 
@@ -35,4 +38,5 @@ Package.onTest(function(api) {
   api.use('nisargshah100:meteororm');
 
   api.addFiles('test/meteororm-test.coffee');
+  api.addFiles('test/associations.coffee');
 });

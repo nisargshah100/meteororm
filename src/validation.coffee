@@ -8,8 +8,8 @@ MeteorOrm.Validation.Rules = {
         options.msg || "is invalid type"
 
       validate: (value) ->
-        type = options.value || options
         return true unless value?
+        type = options.value || options
 
         try
           check(value, type)
@@ -195,6 +195,7 @@ MeteorOrm.Validation = {
       for vName, vOptions of options
         validator = MeteorOrm.Validation.rules[vName]
         if validator
+          onMethod = [].concat(vOptions.on) if vOptions.on
           @_validationRules[name].push({ validator: validator(vOptions, name, @), on: onMethod })
         else
           throw new Error("unknown validator: #{vName}")

@@ -1,5 +1,5 @@
 class @User extends MeteorOrm.Model
-  @collection 'users', timestamps: true
+  @collection 'userss', timestamps: true
   @schema
     email: null
     password: null
@@ -19,7 +19,7 @@ class @User extends MeteorOrm.Model
 
 
 class @Article extends MeteorOrm.Model
-  @collection 'articles'
+  @collection 'articless'
   @schema
     name: null
     cool: null
@@ -53,7 +53,7 @@ class @Val extends MeteorOrm.Model
     nested:
       msg: null
 
-  @validates 'email', type: String, presence: true, email: true
+  @validates 'email', type: String, presence: true, email: true, alphanumeric: { value: true, on: 'destroy' }
   @validates 'alpha', type: { value: String, msg: 'woops' }, alpha: true
   @validates 'alphanumeric', alphanumeric: true
   @validates 'numericality', numericality: { greater_than_or_equal_to: 1, less_than: 10 }
@@ -63,7 +63,6 @@ class @Val extends MeteorOrm.Model
   @validates 'length2', length: { equals: 3 }
   @validates 'length3', length: { within: [1, 4, 5] }
   @validates 'nested.msg', email: { value: true, msg: 'must be email' }
-  @validates 'email', alphanumeric: true, on: 'destroy'
 
   @allow
     'insert': -> true
@@ -126,7 +125,7 @@ class @TT extends MeteorOrm.Model
 
   @deny
     'insert': (userId, doc) -> doc.test == 'fail'
-    'update': (userId, doc) -> doc.test == 'fail'
+    'update': (userId, doc, fieldNames, mod) -> mod.$set.test == 'fail'
 
 
 User.deleteAll()
@@ -430,3 +429,23 @@ Tinytest.addAsync 'timestamps', (test, next) ->
           next()
       }
   }
+
+Tinytest.add 'timestamps on failure', (test) ->
+  r = TT.create { test: 'me' }, {
+    onSuccess: ->
+      console.error(r.createdAt, null) if r.createdAt == null
+      console.error(r.updatedAt, null) if r.updatedAt != null
+
+      r.updateAttributes({ test: 'fail' }, { 
+        onError: ->
+          console.error('created at is null', r.createdAt) if r.createdAt == null
+          console.error('updated at is not null', r.updatedAt) if r.updatedAt != null
+
+        onSuccess: ->
+          console.error('success called')
+      })
+
+    onError: ->
+      console.error('onError called')
+  }
+

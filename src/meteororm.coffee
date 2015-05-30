@@ -7,6 +7,8 @@ class Model extends MeteorOrm.Module
   @include(MeteorOrm.Hooks.instanceMethods)
   @extend(MeteorOrm.ServerHooks.classMethods)
   @include(MeteorOrm.ServerHooks.instanceMethods)
+  @extend(MeteorOrm.Associations.classMethods)
+  @include(MeteorOrm.Associations.instanceMethods)
 
   @createdAtKey = 'createdAt'
   @updatedAtKey = 'updatedAt'
@@ -34,12 +36,16 @@ class Model extends MeteorOrm.Module
       @beforeUpdate -> 
         @[@.constructor.updatedAtKey] = new Date()
 
+  @_registerModel = ->
+    MeteorOrm.models[@.name] = @
+
   # public class
 
   @collection = (tbl, @collection_options = {}) ->
     @_collection = new Meteor.Collection(tbl)
 
   @schema = (data) ->
+    @_registerModel()
     @_setupHooks()
     @_setupValidations()
     data = @_setupTimestampSchema(data) if @collection_options.timestamps
@@ -47,6 +53,7 @@ class Model extends MeteorOrm.Module
     @_schemaKeys = MeteorOrm.Deep.deepKeys(@_schema)
     @_setupTimestamps() if @collection_options.timestamps
     @._setupServerHooks()
+    @._setupAssociations()
 
   @allow = (data) ->
     @_collection.allow(data) if Meteor.isServer
@@ -58,6 +65,7 @@ class Model extends MeteorOrm.Module
     @new(data).save(options)
 
   @wrap = (objects) ->
+    return null if not objects?
     records = []
     objects = [].concat(objects)
     records.push(@.new(obj)) for obj in objects
@@ -131,6 +139,10 @@ class Model extends MeteorOrm.Module
 
   # public instance
 
+  updateAttributes: (attrs, options = {}) ->
+    _.deepExtend(@, attrs)
+    @save(options)
+
   valuesAsHash: ->
     MeteorOrm.Deep.deepPick(@, @.constructor._schemaKeys)
 
@@ -139,11 +151,13 @@ class Model extends MeteorOrm.Module
 
   reload: (id = @id) ->
     throw new Meteor.Error('id is null') unless id?
-    @._define(@.constructor._collection.findOne(id))
+    obj = @.constructor._collection.findOne(id)
+    @._define(obj) if obj? # server may not have sent it yet!
     @
 
   constructor: (attrs = {}) ->
     @._define(attrs)
+    @._defineAssociations()
     @_callAllHooks('afterInitialize')
     @
 
