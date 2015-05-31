@@ -14,8 +14,11 @@ class Query
     @
 
   limit: (n) ->
-    attrs = { limit: n }
-    _.deepExtend(@modifiers, attrs)
+    _.deepExtend(@modifiers, { limit: n})
+    @
+
+  offset: (n) ->
+    _.deepExtend(@modifiers, { skip: n})
     @
 
   first: -> @one()
@@ -56,12 +59,18 @@ class Query
     @select(attr)
     _.map @collection.find(@finder, @modifiers).fetch(), (x) -> x[attr]
 
+  observer: ->
+    @collection.find(@finder, @modifiers)
+
 MeteorOrm.Query = {
 
   classMethods: {
 
     first: ->
       @one()
+
+    observer: ->
+      new Query(@).observer()
 
     sort: (attrs) ->
       new Query(@).sort(attrs)
@@ -77,6 +86,9 @@ MeteorOrm.Query = {
 
     limit: (n) ->
       new Query(@).limit(n)
+
+    offset: (n) ->
+      new Query(@).offset(n)
 
     count: ->
       new Query(@).count()
