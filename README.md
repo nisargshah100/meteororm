@@ -291,6 +291,21 @@ class User extends MeteorOrm.Model
 
 You can add validations to beforeCreate, beforeUpdate, beforeSave or beforeDestroy
 
+## Observer
+
+In publishes, you need to return an observer for Meteor to auto update. That can be 
+done via:
+
+```
+User.observer()
+```
+
+or 
+
+```
+User.where({ email: 'foo' }).limit(20).observer()
+```
+
 ## Quering
 
 ARJS supports many ways to fetch data from database. 
@@ -304,6 +319,7 @@ The following methods are supported:
 * sort
 * pluck
 * count
+* offset
 
 Find a single user
 
